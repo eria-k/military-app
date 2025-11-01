@@ -1,11 +1,180 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Military AI Screener</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Military AI Screening System</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box }
+    body {
+      font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height:100vh; padding:20px;
+    }
+    .container { max-width:1000px; margin:0 auto; background:#fff; padding:30px; border-radius:15px; box-shadow:0 20px 40px rgba(0,0,0,.1) }
+    .header { text-align:center; margin-bottom:30px; background:linear-gradient(135deg,#2c3e50,#34495e); color:#fff; padding:30px; border-radius:10px }
+    .header h1{ font-size:2.2em; margin-bottom:8px; background:linear-gradient(45deg,#ffd89b,#19547b); -webkit-background-clip:text; -webkit-text-fill-color:transparent }
+    .status-indicator{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:8px}
+    .status-online{background:#27ae60}.status-offline{background:#e74c3c}.status-loading{background:#f39c12}
+    .card{border:2px solid #e0e0e0;padding:20px;border-radius:12px;background:#fff}
+    .row{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}
+    .btn{background:#3498db;color:#fff;padding:10px 18px;border:none;border-radius:8px;cursor:pointer;font-weight:600}
+    .btn:hover{background:#2980b9}
+    textarea{width:100%;min-height:140px}
+    .candidate-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px;margin:20px 0}
+    .candidate-card{border:2px solid #e0e0e0;padding:20px;border-radius:12px;cursor:pointer;transition:.2s}
+    .candidate-card:hover{transform:translateY(-4px); box-shadow:0 10px 22px rgba(0,0,0,.12)}
+    .badge{display:inline-block;padding:5px 10px;border-radius:16px;font-size:.8em;font-weight:700;margin-bottom:8px}
+    .excellent .badge{background:#d5f4e6;color:#27ae60}
+    .average .badge{background:#fef5e7;color:#f39c12}
+    .poor .badge{background:#fadbd8;color:#e74c3c}
+    .result{margin-top:20px;padding:20px;border-radius:12px;display:none}
+    .result.pass{background:#d5f4e6;border:2px solid #27ae60}
+    .result.conditional{background:#fef5e7;border:2px solid #f39c12}
+    .result.fail{background:#fadbd8;border:2px solid #e74c3c}
+    .role-list{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+    .role-tag{background:#3498db;color:#fff;padding:6px 12px;border-radius:18px;font-size:.9em}
+    .role-tag.combat{background:#e74c3c}.role-tag.support{background:#f39c12}.role-tag.medical{background:#9b59b6}
+    .loading{text-align:center;padding:16px;display:none}
+  </style>
 </head>
 <body>
-    <h1>✅ Military AI Screening System</h1>
-    <p>Backend scaffold is running!</p>
-    <p>Model integration and PDF screening coming next.</p>
+  <div class="container">
+    <div class="header">
+      <h1>🎯 Military AI Pre-Screening System</h1>
+      <p>AI-Powered Physical Fitness Assessment</p>
+      <div style="margin-top:12px">
+        <span id="status-ind" class="status-indicator status-loading"></span>
+        <span id="status-text">Checking server status...</span>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:18px">
+      <h2 style="margin-bottom:10px">📝 Your Input</h2>
+      <div class="row">
+        <div>
+          <h3>Manual JSON</h3>
+          <p style="color:#666;margin:6px 0">Paste <code>{"sensor_data":[561 floats]}</code></p>
+          <textarea id="jsonInput">{ "sensor_data": [0,0,0,0] }</textarea>
+          <div style="margin-top:10px"><button class="btn" onclick="submitJSON()">Screen Candidate</button></div>
+        </div>
+        <div>
+          <h3>Upload PDF</h3>
+          <p style="color:#666;margin:6px 0">
+            Include one of these in the PDF text:<br/>
+            <code>SENSOR_DATA_JSON: {"sensor_data":[...]}</code><br/>
+            or<br/>
+            <code>SENSOR_DATA_CSV: v1,v2,...,v561</code>
+          </p>
+          <input id="pdfFile" type="file" accept="application/pdf"/>
+          <div style="margin-top:10px"><button class="btn" onclick="uploadPDF()">Upload & Screen</button></div>
+        </div>
+      </div>
+    </div>
+
+    <h2>🧪 Demonstration Candidates</h2>
+    <p style="margin:8px 0 14px;color:#666">Click a card to run a demo screening</p>
+
+    <div class="candidate-grid">
+      <div class="candidate-card excellent" onclick="screenCandidate('excellent')">
+        <div class="badge">EXPECTED: PASS</div>
+        <h3>✅ Candidate A: Elite Performer</h3>
+        <p>Excellent patterns, high fitness, optimal biomarkers</p>
+        <button class="btn" style="margin-top:10px">Screen This Candidate</button>
+      </div>
+      <div class="candidate-card average" onclick="screenCandidate('average')">
+        <div class="badge">EXPECTED: CONDITIONAL</div>
+        <h3>⚠️ Candidate B: Average Performer</h3>
+        <p>Moderate fitness level, some improvement areas</p>
+        <button class="btn" style="margin-top:10px">Screen This Candidate</button>
+      </div>
+      <div class="candidate-card poor" onclick="screenCandidate('poor')">
+        <div class="badge">EXPECTED: FAIL</div>
+        <h3>❌ Candidate C: Poor Performer</h3>
+        <p>Movement deficiencies, medical evaluation likely</p>
+        <button class="btn" style="margin-top:10px">Screen This Candidate</button>
+      </div>
+    </div>
+
+    <div class="loading" id="loading">
+      <h3>🔄 AI Analysis in Progress...</h3>
+      <p>Analyzing sensor data and extracting biomarkers</p>
+    </div>
+
+    <div class="result" id="result"><div id="result-content"></div></div>
+  </div>
+
+<script>
+async function checkServerStatus(){
+  try{
+    const r = await fetch('/health'); const j = await r.json();
+    const ind = document.getElementById('status-ind'), txt = document.getElementById('status-text');
+    if ((j.ok || j.system_ready || j.status==='healthy')){ ind.className='status-indicator status-online'; txt.textContent='Server Online - System Ready'; }
+    else { ind.className='status-indicator status-loading'; txt.textContent='Server Initializing - Please wait'; }
+  }catch(e){ const ind=document.getElementById('status-ind'),txt=document.getElementById('status-text'); ind.className='status-indicator status-offline'; txt.textContent='Server Offline'; }
+}
+window.addEventListener('load',()=>{checkServerStatus(); setInterval(checkServerStatus,10000)});
+
+function showLoading(s){ document.getElementById('loading').style.display = s ? 'block' : 'none'; }
+function showError(msg){
+  const c=document.getElementById('result-content');
+  c.innerHTML = `<div style="color:#e74c3c;text-align:center;padding:16px"><h3>❌ Error</h3><p>${msg||'Server error'}</p></div>`;
+  const r=document.getElementById('result'); r.className='result'; r.style.display='block'; r.scrollIntoView({behavior:'smooth'});
+}
+function showOK(res){
+  const pred = res.prediction;
+  const roles = (pred.recommended_roles||[]).map(role=>{
+    const cls = role.includes('Medical')?'medical':(['Infantry','Special Forces','Combat Engineer'].includes(role)?'combat':'support');
+    return `<span class="role-tag ${cls}">${role}</span>`;
+  }).join('');
+  const r=document.getElementById('result');
+  r.className = 'result ' + (pred.decision.toLowerCase().replace(' ','-'));
+  document.getElementById('result-content').innerHTML = `
+    <h2>📊 AI Screening Results</h2>
+    <p><b>Activity:</b> ${pred.activity}</p>
+    <p><b>AI Confidence:</b> ${(pred.confidence*100).toFixed(1)}%</p>
+    <p><b>Decision:</b> <b>${pred.decision}</b> — ${pred.risk_level}</p>
+    <p><b>Reason:</b> ${pred.reason}</p>
+    <h3 style="margin-top:10px">💼 Recommended Roles</h3>
+    <div class="role-list">${roles||'—'}</div>
+    <div style="margin-top:12px"><b>Performance Score:</b> ${pred.performance_score}%</div>
+  `;
+  r.style.display='block'; r.scrollIntoView({behavior:'smooth'});
+}
+
+async function submitJSON(){
+  let payload; try{ payload = JSON.parse(document.getElementById('jsonInput').value) }catch(e){ return showError('Invalid JSON'); }
+  showLoading(true);
+  try{
+    const r = await fetch('/predict',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    const j = await r.json(); if(!r.ok || !j.success) throw new Error(j.error||`HTTP ${r.status}`);
+    showOK(j);
+  }catch(e){ showError(e.message) } finally{ showLoading(false) }
+}
+
+async function uploadPDF(){
+  const file = document.getElementById('pdfFile').files[0]; if(!file) return showError('Choose a PDF first');
+  showLoading(true);
+  try{
+    const fd = new FormData(); fd.append('file', file);
+    const r = await fetch('/upload',{method:'POST',body:fd});
+    const j = await r.json(); if(!r.ok || !j.success) throw new Error(j.error||`HTTP ${r.status}`);
+    showOK(j);
+  }catch(e){ showError(e.message) } finally{ showLoading(false) }
+}
+
+async function screenCandidate(kind){
+  showLoading(true);
+  const ranges = { excellent:2.0, average:1.2, poor:0.5 };
+  const mag = ranges[kind]||1.0;
+  const vec = Array(561).fill(0).map(()=> (Math.random()-0.5)*mag);
+  try{
+    const r = await fetch('/predict',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sensor_data:vec})});
+    const j = await r.json(); if(!r.ok || !j.success) throw new Error(j.error||`HTTP ${r.status}`);
+    showOK(j);
+  }catch(e){ showError(e.message) } finally{ showLoading(false) }
+}
+</script>
 </body>
 </html>
